@@ -32,6 +32,7 @@ claude-shared/
 ├── rules/
 │   └── doc-workflow.md        # Contextual rules for Claude when editing docs/
 ├── setup.sh                   # One-command setup for new projects
+├── update.sh                  # Manual update (pull latest)
 └── README.md
 ```
 
@@ -47,6 +48,7 @@ claude-shared/
 |------|---------------|-------------|
 | `require-commit-doc.sh` | Before any `git commit` (PreToolUse) | Denies the commit if no `docs/versions/` file is staged. Tells Claude how many commits are undocumented and what to do. Skips enforcement if `docs/versions/` doesn't exist in the project. |
 | `update-design-doc.sh` | After plan approval (PostToolUse on ExitPlanMode) | Saves the approved plan to `docs/plans/{date}/{topic}.md` and updates the latest `docs/designs/vN.N.md` with plan decisions. Skips if no design docs exist. |
+| `auto-update.sh` | First tool use per session (PreToolUse, user-level) | Compares local HEAD vs remote HEAD. Pulls if they differ. Gates on 30-min timestamp to avoid repeated checks. Installed in `~/.claude/settings.json`. |
 
 ### Rules
 
@@ -102,6 +104,39 @@ claude-shared/
                     → Generates docs/versions/{N}_{hash}.md
                     → Stages it
                     → Retries commit ✓
+
+
+                    Auto-Update Flow
+                    ════════════════
+
+  Claude Code session starts
+           │
+           ▼
+  First tool use triggers PreToolUse
+           │
+           ▼
+  ┌──────────────────────────┐
+  │  auto-update.sh          │
+  │  (~/.claude/settings)    │
+  └───────────┬──────────────┘
+              │
+     ┌────────┴────────┐
+     │                  │
+  Checked            Last check
+  < 30 min ago       > 30 min ago
+     │                  │
+     ▼                  ▼
+   SKIP             git fetch origin
+                        │
+                ┌───────┴───────┐
+                │               │
+            LOCAL ==         LOCAL !=
+            REMOTE           REMOTE
+                │               │
+                ▼               ▼
+              SKIP          git pull --ff-only
+                            Log: "Updated abc → def"
+                            All symlinked projects updated ✓
 
 
   Developer approves a plan (ExitPlanMode)
@@ -177,21 +212,32 @@ It's safe to run multiple times — it skips existing symlinks and warns about c
 
 ## Updating
 
-Since consumer projects use **symlinks** (not copies), pulling the latest `claude-shared` updates all linked projects instantly.
+### Automatic (recommended)
+
+`setup.sh` installs an **auto-update hook** into your user-level `~/.claude/settings.json`. On every Claude Code session, the hook:
+
+1. Compares your local commit against the remote (`origin/main`)
+2. If they differ, pulls the latest with `--ff-only`
+3. Logs what changed to stderr (visible in Claude Code output)
+4. Gates on a 30-minute timestamp so it doesn't re-check on every tool use
+
+Since consumer projects use **symlinks** (not copies), pulling `claude-shared` updates all linked projects instantly — no re-linking needed.
+
+The auto-update hook is lightweight: it skips entirely if checked within the last 30 minutes, and the `git fetch` has a 5-second timeout so it never blocks your session.
+
+You can customize the clone location by setting `CLAUDE_SHARED_DIR` in your environment (defaults to `~/src/claude-shared`).
+
+### Manual
 
 ```bash
 # One command to update everything:
 ~/src/claude-shared/update.sh
 ```
 
-This pulls the latest changes from the remote and shows what changed. All linked projects pick up the new versions immediately — no re-linking needed.
-
 **For non-contributors** who just need the latest version:
 1. Clone once: `git clone https://github.com/aii-collective/claude-shared.git ~/src/claude-shared`
 2. Run setup in your project: `~/src/claude-shared/setup.sh ~/src/my-project`
-3. Periodically update: `~/src/claude-shared/update.sh`
-
-That's it — no need to understand the internals or contribute back.
+3. Updates happen automatically on next Claude Code session
 
 ## Contributing
 

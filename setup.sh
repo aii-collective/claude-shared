@@ -104,6 +104,59 @@ else
   fi
 fi
 
+# --- Install auto-update hook in user-level settings ---
+USER_SETTINGS="$HOME/.claude/settings.json"
+AUTO_UPDATE_HOOK="$SHARED_DIR/hooks/auto-update.sh"
+
+if [ -f "$USER_SETTINGS" ]; then
+  if grep -q "auto-update.sh" "$USER_SETTINGS" 2>/dev/null; then
+    echo "  [skip] Auto-update hook already in ~/.claude/settings.json"
+  else
+    # Merge auto-update hook into user settings
+    AUTO_HOOK_CONFIG=$(cat <<AUTOHOOK
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\$HOME/src/claude-shared/hooks/auto-update.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+AUTOHOOK
+)
+    MERGED=$(jq -s 'def merge_hooks: if .[0].hooks.PreToolUse then .[0] * {hooks: {PreToolUse: (.[0].hooks.PreToolUse + .[1].hooks.PreToolUse)}} else .[0] * .[1] end; merge_hooks' "$USER_SETTINGS" <(echo "$AUTO_HOOK_CONFIG"))
+    echo "$MERGED" > "$USER_SETTINGS"
+    echo "  [merge] Added auto-update hook to ~/.claude/settings.json"
+  fi
+else
+  mkdir -p "$HOME/.claude"
+  cat > "$USER_SETTINGS" <<AUTOHOOK
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\$HOME/src/claude-shared/hooks/auto-update.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+AUTOHOOK
+  echo "  [create] ~/.claude/settings.json with auto-update hook"
+fi
+
 # --- Create docs directories if they don't exist ---
 echo ""
 if [ ! -d "$TARGET_DIR/docs/versions" ]; then
@@ -115,6 +168,7 @@ fi
 
 echo ""
 echo "Done! The documentation-first workflow is now linked."
+echo "Auto-update is enabled — claude-shared will stay current on every Claude Code launch."
 echo ""
 echo "Next steps:"
 echo "  1. Create docs directories if needed:  mkdir -p docs/versions docs/designs docs/plans"
