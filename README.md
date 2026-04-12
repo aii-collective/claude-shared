@@ -175,6 +175,24 @@ your-project/
 
 It's safe to run multiple times — it skips existing symlinks and warns about conflicts.
 
+## Updating
+
+Since consumer projects use **symlinks** (not copies), pulling the latest `claude-shared` updates all linked projects instantly.
+
+```bash
+# One command to update everything:
+~/src/claude-shared/update.sh
+```
+
+This pulls the latest changes from the remote and shows what changed. All linked projects pick up the new versions immediately — no re-linking needed.
+
+**For non-contributors** who just need the latest version:
+1. Clone once: `git clone https://github.com/aii-collective/claude-shared.git ~/src/claude-shared`
+2. Run setup in your project: `~/src/claude-shared/setup.sh ~/src/my-project`
+3. Periodically update: `~/src/claude-shared/update.sh`
+
+That's it — no need to understand the internals or contribute back.
+
 ## Contributing
 
 ### Adding a new skill
