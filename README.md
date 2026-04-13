@@ -28,7 +28,8 @@ claude-shared/
 │       └── SKILL.md           # Auto-generates implementation docs from commits
 ├── hooks/
 │   ├── require-commit-doc.sh  # Blocks commits without staged docs
-│   └── update-design-doc.sh   # Saves plans + updates design docs after plan approval
+│   ├── update-design-doc.sh   # Saves plans + updates design docs after plan approval
+│   └── auto-update.sh         # Version check + pull on Claude Code launch
 ├── rules/
 │   └── doc-workflow.md        # Contextual rules for Claude when editing docs/
 ├── setup.sh                   # One-command setup for new projects
@@ -205,7 +206,8 @@ your-project/
 
 - Creates `.claude/skills/`, `.claude/hooks/`, `.claude/rules/` directories
 - Symlinks skills, hooks, and rules from this repo into your project
-- Creates or merges hook configuration into `.claude/settings.json`
+- Creates or merges hook configuration into `.claude/settings.json` (project-level)
+- Installs the auto-update hook into `~/.claude/settings.json` (user-level) so updates are pulled automatically on every Claude Code launch
 - Reports what was linked and any manual steps needed
 
 It's safe to run multiple times — it skips existing symlinks and warns about conflicts.
