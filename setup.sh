@@ -137,9 +137,9 @@ EOF
 detect_existing() {
   local target_dir="$1"
   if [ -f "$target_dir/$VERSION_FILE" ]; then
-    local existing_mode=""
-    existing_mode=$(grep -E '^mode=' "$target_dir/$VERSION_FILE" | cut -d= -f2)
-    echo "$existing_mode"
+    # shellcheck disable=SC1090
+    source <(grep -E '^(mode|commit|commit_short|date)=' "$target_dir/$VERSION_FILE")
+    echo "$mode"
   fi
 }
 
@@ -426,72 +426,6 @@ cleanup_previous() {
 }
 
 # ==============================================================================
-# Scaffold docs structure
-# ==============================================================================
-
-scaffold_docs() {
-  local target_dir="$1"
-  local project_name
-  project_name=$(basename "$target_dir")
-
-  echo ""
-
-  # Create directories
-  for dir in docs/versions docs/designs docs/plans; do
-    if [ ! -d "$target_dir/$dir" ]; then
-      mkdir -p "$target_dir/$dir"
-      echo "  [create] $dir/"
-    else
-      echo "  [ok] $dir/"
-    fi
-  done
-
-  # Scaffold architecture.md if missing
-  if [ ! -f "$target_dir/docs/designs/architecture.md" ]; then
-    cat > "$target_dir/docs/designs/architecture.md" <<ARCH
-# ${project_name} Architecture
-
-## Overview
-
-<!-- Describe the high-level architecture of this project -->
-
-## Components
-
-<!-- List major components and their responsibilities -->
-
-## Directory Layout
-
-<!-- Describe the project's directory structure -->
-ARCH
-    echo "  [create] docs/designs/architecture.md (template)"
-  fi
-
-  # Scaffold v0.1.md if no design docs exist
-  if ! ls "$target_dir"/docs/designs/v*.md &>/dev/null; then
-    cat > "$target_dir/docs/designs/v0.1.md" <<DESIGN
-# ${project_name} v0.1 Design
-
-## Goals
-
-<!-- What are the goals for this version? -->
-
-## Design Decisions
-
-<!-- Document key design decisions and their rationale -->
-
-## Scope
-
-### In scope
-<!-- What's included in v0.1 -->
-
-### Future considerations
-<!-- What's deferred to later versions -->
-DESIGN
-    echo "  [create] docs/designs/v0.1.md (template)"
-  fi
-}
-
-# ==============================================================================
 # Main
 # ==============================================================================
 
@@ -545,12 +479,11 @@ main() {
   prev_mode=$(detect_existing "$TARGET_DIR")
 
   if [ -n "$prev_mode" ]; then
-    local prev_commit_short prev_date
-    prev_commit_short=$(grep -E '^commit_short=' "$TARGET_DIR/$VERSION_FILE" | cut -d= -f2)
-    prev_date=$(grep -E '^date=' "$TARGET_DIR/$VERSION_FILE" | cut -d= -f2)
+    # shellcheck disable=SC1090
+    source <(grep -E '^(commit_short|date)=' "$TARGET_DIR/$VERSION_FILE")
     echo "  Existing installation detected:"
     echo "    Mode:      ${prev_mode}"
-    echo "    Installed: ${prev_commit_short:-unknown} (${prev_date:-unknown})"
+    echo "    Installed: ${commit_short:-unknown} (${date:-unknown})"
     echo "    Available: ${shared_commit_short}"
     echo ""
   fi
@@ -596,8 +529,14 @@ main() {
   configure_project_settings "$TARGET_DIR"
   configure_user_settings
 
-  # Scaffold docs structure
-  scaffold_docs "$TARGET_DIR"
+  # Docs check
+  echo ""
+  if [ ! -d "$TARGET_DIR/docs/versions" ]; then
+    echo "  [note] docs/versions/ does not exist yet"
+    echo "         Create it when ready: mkdir -p docs/versions docs/designs docs/plans"
+  else
+    echo "  [ok] docs/versions/ exists"
+  fi
 
   # Summary
   echo ""
@@ -607,19 +546,22 @@ main() {
   case "$mode" in
     copy)
       echo "  Next steps:"
-      echo "    1. Commit .claude/ and docs/ to your repo"
-      echo "    2. Re-run setup.sh to update to a newer version"
+      echo "    1. Create docs dirs if needed:  mkdir -p docs/versions docs/designs docs/plans"
+      echo "    2. Commit .claude/ to your repo"
+      echo "    3. Re-run setup.sh to update to a newer version"
       ;;
     symlink)
       echo "  Next steps:"
-      echo "    1. Commit .claude/settings.json, .claude/.claude-shared-version, and docs/"
-      echo "    2. Collaborators: clone claude-shared as a sibling, then run setup.sh"
+      echo "    1. Create docs dirs if needed:  mkdir -p docs/versions docs/designs docs/plans"
+      echo "    2. Commit .claude/settings.json and .claude/.claude-shared-version"
+      echo "    3. Collaborators: clone claude-shared as a sibling, then run setup.sh"
       ;;
     submodule)
       echo "  Next steps:"
-      echo "    1. Commit:  git add .gitmodules .claude/ docs/ && git commit"
-      echo "    2. Collaborators:  git clone --recurse-submodules <url>"
-      echo "    3. Update:  git submodule update --remote .claude/shared"
+      echo "    1. Create docs dirs if needed:  mkdir -p docs/versions docs/designs docs/plans"
+      echo "    2. Commit:  git add .gitmodules .claude/ && git commit"
+      echo "    3. Collaborators:  git clone --recurse-submodules <url>"
+      echo "    4. Update:  git submodule update --remote .claude/shared"
       ;;
   esac
 
