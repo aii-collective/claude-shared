@@ -14,7 +14,7 @@ set -euo pipefail
 # ==============================================================================
 
 PROJECT_HOOKS=("require-commit-doc.sh" "update-design-doc.sh")
-SKILLS=("document-commit" "scaffold-docs")
+SKILLS=("document-commit")
 RULES=("doc-workflow.md")
 VERSION_FILE=".claude/.claude-shared-version"
 
@@ -431,7 +431,8 @@ cleanup_previous() {
 
 scaffold_docs() {
   local target_dir="$1"
-  local needs_scaffold=false
+  local project_name
+  project_name=$(basename "$target_dir")
 
   echo ""
 
@@ -440,25 +441,53 @@ scaffold_docs() {
     if [ ! -d "$target_dir/$dir" ]; then
       mkdir -p "$target_dir/$dir"
       echo "  [create] $dir/"
-      needs_scaffold=true
     else
       echo "  [ok] $dir/"
     fi
   done
 
-  # Check if architecture.md or design docs are missing
+  # Scaffold architecture.md if missing
   if [ ! -f "$target_dir/docs/designs/architecture.md" ]; then
-    needs_scaffold=true
-  fi
-  if ! ls "$target_dir"/docs/designs/v*.md &>/dev/null; then
-    needs_scaffold=true
+    cat > "$target_dir/docs/designs/architecture.md" <<ARCH
+# ${project_name} Architecture
+
+## Overview
+
+<!-- Describe the high-level architecture of this project -->
+
+## Components
+
+<!-- List major components and their responsibilities -->
+
+## Directory Layout
+
+<!-- Describe the project's directory structure -->
+ARCH
+    echo "  [create] docs/designs/architecture.md (template)"
   fi
 
-  if [ "$needs_scaffold" = true ]; then
-    echo ""
-    echo "  [action] Run /scaffold-docs in Claude Code to generate architecture"
-    echo "           and design docs from your codebase. It will read your code"
-    echo "           and ask questions if needed — no placeholder templates."
+  # Scaffold v0.1.md if no design docs exist
+  if ! ls "$target_dir"/docs/designs/v*.md &>/dev/null; then
+    cat > "$target_dir/docs/designs/v0.1.md" <<DESIGN
+# ${project_name} v0.1 Design
+
+## Goals
+
+<!-- What are the goals for this version? -->
+
+## Design Decisions
+
+<!-- Document key design decisions and their rationale -->
+
+## Scope
+
+### In scope
+<!-- What's included in v0.1 -->
+
+### Future considerations
+<!-- What's deferred to later versions -->
+DESIGN
+    echo "  [create] docs/designs/v0.1.md (template)"
   fi
 }
 
