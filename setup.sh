@@ -2,10 +2,10 @@
 # setup.sh — Install claude-shared skills, hooks, and rules into a target project.
 #
 # Usage:
-#   /path/to/claude-shared/setup.sh [target-project-dir]
+#   /path/to/claude-shared/setup.sh [--mode copy|symlink|submodule] [target-project-dir]
 #
 # If target-project-dir is omitted, uses the current directory.
-# Interactive arrow-key menu lets you choose: Copy, Symlink, or Submodule.
+# If --mode is omitted, an interactive arrow-key menu is shown.
 
 set -euo pipefail
 
@@ -433,7 +433,28 @@ main() {
   ensure_jq
 
   SHARED_DIR="$(cd "$(dirname "$0")" && pwd)"
-  TARGET_DIR="${1:-.}"
+
+  # Parse arguments
+  local cli_mode=""
+  local target_arg=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --mode)
+        cli_mode="$2"
+        if [[ ! "$cli_mode" =~ ^(copy|symlink|submodule)$ ]]; then
+          echo "Error: --mode must be copy, symlink, or submodule (got: $cli_mode)"
+          exit 1
+        fi
+        shift 2
+        ;;
+      *)
+        target_arg="$1"
+        shift
+        ;;
+    esac
+  done
+
+  TARGET_DIR="${target_arg:-.}"
   TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
   # Validate target is a git repo
@@ -468,19 +489,23 @@ main() {
   fi
 
   # Mode selection
-  local choice
-  menu_select choice \
-    "  How would you like to install claude-shared?" \
-    "Copy|Files copied into .claude/, version tracked. Fully portable, no external deps." \
-    "Symlink|Relative symlinks to sibling clone. Auto-configures .gitignore." \
-    "Submodule (recommended)|Git submodule at .claude/shared/. Portable + updatable."
-
   local mode
-  case $choice in
-    0) mode="copy" ;;
-    1) mode="symlink" ;;
-    2) mode="submodule" ;;
-  esac
+  if [ -n "$cli_mode" ]; then
+    mode="$cli_mode"
+  else
+    local choice
+    menu_select choice \
+      "  How would you like to install claude-shared?" \
+      "Copy|Files copied into .claude/, version tracked. Fully portable, no external deps." \
+      "Symlink|Relative symlinks to sibling clone. Auto-configures .gitignore." \
+      "Submodule (recommended)|Git submodule at .claude/shared/. Portable + updatable."
+
+    case $choice in
+      0) mode="copy" ;;
+      1) mode="symlink" ;;
+      2) mode="submodule" ;;
+    esac
+  fi
 
   echo ""
   echo "  Installing with mode: ${mode}"
