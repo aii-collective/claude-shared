@@ -1,0 +1,6 @@
+
+# claude-shared symlinks (mode: symlink)
+.claude/hooks/require-commit-doc.sh
+.claude/hooks/update-design-doc.sh
+.claude/skills/document-commit
+.claude/rules/doc-workflow.md

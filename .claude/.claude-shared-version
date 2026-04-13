@@ -1,0 +1,6 @@
+# Installed by claude-shared setup.sh
+mode=symlink
+commit=954eb954e18adbb8b695b00b0492ad87b686e65b
+commit_short=954eb95
+date=2026-04-13T04:40:12Z
+source=git@github-aiico:aii-collective/claude-shared.git
