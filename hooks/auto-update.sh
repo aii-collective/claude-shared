@@ -58,20 +58,35 @@ else
   SHARED_UPDATED=false
 fi
 
-# --- Update submodule in current project if present ---
-PROJECT_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null)
-if [ -n "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/.gitmodules" ]; then
-  if grep -q 'claude-shared' "$PROJECT_ROOT/.gitmodules" 2>/dev/null; then
-    SUBMODULE_PATH=$(git -C "$PROJECT_ROOT" config --file .gitmodules --get-regexp 'submodule\..*claude.*\.path' 2>/dev/null | awk '{print $2}')
-    if [ -n "$SUBMODULE_PATH" ] && [ -d "$PROJECT_ROOT/$SUBMODULE_PATH" ]; then
-      SUB_BEFORE=$(git -C "$PROJECT_ROOT/$SUBMODULE_PATH" rev-parse --short HEAD 2>/dev/null)
-      git -C "$PROJECT_ROOT" submodule update --remote "$SUBMODULE_PATH" --quiet 2>/dev/null
-      SUB_AFTER=$(git -C "$PROJECT_ROOT/$SUBMODULE_PATH" rev-parse --short HEAD 2>/dev/null)
-      if [ "$SUB_BEFORE" != "$SUB_AFTER" ]; then
-        echo "[claude-shared] Submodule updated in $(basename "$PROJECT_ROOT"): $SUB_BEFORE → $SUB_AFTER" >&2
-      fi
-    fi
+# --- Update submodules ---
+# Helper: update claude-shared submodule in a single project
+update_project_submodule() {
+  local project_root="$1"
+  [ -f "$project_root/.gitmodules" ] || return
+  grep -q 'claude-shared' "$project_root/.gitmodules" 2>/dev/null || return
+  local submodule_path
+  submodule_path=$(git -C "$project_root" config --file .gitmodules --get-regexp 'submodule\..*claude.*\.path' 2>/dev/null | awk '{print $2}')
+  [ -n "$submodule_path" ] && [ -d "$project_root/$submodule_path" ] || return
+  local before after
+  before=$(git -C "$project_root/$submodule_path" rev-parse --short HEAD 2>/dev/null)
+  git -C "$project_root" submodule update --remote "$submodule_path" --quiet 2>/dev/null
+  after=$(git -C "$project_root/$submodule_path" rev-parse --short HEAD 2>/dev/null)
+  if [ "$before" != "$after" ]; then
+    echo "[claude-shared] Submodule updated in $(basename "$project_root"): $before → $after" >&2
   fi
+}
+
+PROJECT_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null)
+if [ -n "$PROJECT_ROOT" ]; then
+  # Inside a git repo — update just this project
+  update_project_submodule "$PROJECT_ROOT"
+else
+  # Not in a git repo (e.g. ~/src/) — scan child directories
+  SCAN_DIR="${CLAUDE_PROJECT_DIR:-.}"
+  for child in "$SCAN_DIR"/*/; do
+    [ -d "$child/.git" ] || continue
+    update_project_submodule "$(cd "$child" && pwd)"
+  done
 fi
 
 exit 0
