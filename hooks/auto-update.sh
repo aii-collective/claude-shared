@@ -53,6 +53,25 @@ if [ "$BEFORE_SHORT" != "$AFTER_SHORT" ]; then
   CHANGES=$(git log --oneline "$BEFORE_SHORT..$AFTER_SHORT" 2>/dev/null | head -5)
   echo "[claude-shared] Updated $BEFORE_SHORT → $AFTER_SHORT" >&2
   echo "$CHANGES" | sed 's/^/  /' >&2
+  SHARED_UPDATED=true
+else
+  SHARED_UPDATED=false
+fi
+
+# --- Update submodule in current project if present ---
+PROJECT_ROOT=$(git -C "${CLAUDE_PROJECT_DIR:-.}" rev-parse --show-toplevel 2>/dev/null)
+if [ -n "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/.gitmodules" ]; then
+  if grep -q 'claude-shared' "$PROJECT_ROOT/.gitmodules" 2>/dev/null; then
+    SUBMODULE_PATH=$(git -C "$PROJECT_ROOT" config --file .gitmodules --get-regexp 'submodule\..*claude.*\.path' 2>/dev/null | awk '{print $2}')
+    if [ -n "$SUBMODULE_PATH" ] && [ -d "$PROJECT_ROOT/$SUBMODULE_PATH" ]; then
+      SUB_BEFORE=$(git -C "$PROJECT_ROOT/$SUBMODULE_PATH" rev-parse --short HEAD 2>/dev/null)
+      git -C "$PROJECT_ROOT" submodule update --remote "$SUBMODULE_PATH" --quiet 2>/dev/null
+      SUB_AFTER=$(git -C "$PROJECT_ROOT/$SUBMODULE_PATH" rev-parse --short HEAD 2>/dev/null)
+      if [ "$SUB_BEFORE" != "$SUB_AFTER" ]; then
+        echo "[claude-shared] Submodule updated in $(basename "$PROJECT_ROOT"): $SUB_BEFORE → $SUB_AFTER" >&2
+      fi
+    fi
+  fi
 fi
 
 exit 0
