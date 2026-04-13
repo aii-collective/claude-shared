@@ -4,8 +4,18 @@
 #
 # Part of claude-shared — https://github.com/aii-collective/claude-shared
 
+# Resolve the project root — try git repo root first, fall back to CLAUDE_PROJECT_DIR
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$PROJECT_ROOT" ]; then
+  PROJECT_ROOT="$CLAUDE_PROJECT_DIR"
+fi
+
+if [ -z "$PROJECT_ROOT" ]; then
+  exit 0
+fi
+
 # Find the latest vN.N.md design doc
-DESIGNS_DIR="$CLAUDE_PROJECT_DIR/docs/designs"
+DESIGNS_DIR="$PROJECT_ROOT/docs/designs"
 LATEST_DESIGN=$(ls -1 "$DESIGNS_DIR"/v*.md 2>/dev/null | sort -t'v' -k2 -V | tail -1)
 
 if [ -z "$LATEST_DESIGN" ]; then
@@ -15,7 +25,7 @@ fi
 
 LATEST_NAME=$(basename "$LATEST_DESIGN")
 
-PLANS_DIR="$CLAUDE_PROJECT_DIR/docs/plans"
+PLANS_DIR="$PROJECT_ROOT/docs/plans"
 DATE_FOLDER=$(date +%Y-%m-%d)
 mkdir -p "$PLANS_DIR/$DATE_FOLDER"
 

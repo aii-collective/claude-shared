@@ -12,8 +12,14 @@ if ! echo "$COMMAND" | grep -qE '^\s*git\s+commit\b'; then
   exit 0
 fi
 
+# Resolve the git repo root — works regardless of CWD
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$REPO_ROOT" ]; then
+  exit 0  # Not inside a git repo
+fi
+
 # If the project doesn't use docs/versions/, skip enforcement
-if [ ! -d "docs/versions" ]; then
+if [ ! -d "$REPO_ROOT/docs/versions" ]; then
   exit 0
 fi
 
@@ -24,7 +30,7 @@ fi
 
 # Count how many commits are undocumented (since last documented commit)
 LAST_DOC_HASH=""
-LATEST_DOC=$(ls -1 docs/versions/*.md 2>/dev/null | sort -t_ -k1 -n | tail -1)
+LATEST_DOC=$(ls -1 "$REPO_ROOT"/docs/versions/*.md 2>/dev/null | sort -t_ -k1 -n | tail -1)
 if [ -n "$LATEST_DOC" ]; then
   # Extract hash from filename like 1_68cbf20.md
   LAST_DOC_HASH=$(basename "$LATEST_DOC" .md | sed 's/^[0-9]*_//')
