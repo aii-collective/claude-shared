@@ -280,4 +280,4 @@ git add some-file.txt
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT
